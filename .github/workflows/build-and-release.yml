@@ -1,0 +1,209 @@
+name: Extension Builder
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '.gitignore'
+      - '.eslintrc.json'
+      - 'tsconfig.json'
+      - '.vscodeignore'
+      - '.github/workflows/**'
+      - 'README.md'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '.gitignore'
+      - '.eslintrc.json'
+      - 'tsconfig.json'
+      - '.vscodeignore'
+      - '.github/workflows/**'
+      - 'README.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+        run_install: false
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+        cache-dependency-path: |
+          pnpm-lock.yaml
+          webviews/pnpm-lock.yaml
+        
+    
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+    
+    - name: Install webviews dependencies
+      working-directory: webviews
+      run: pnpm install --frozen-lockfile
+      
+    - name: Build webviews
+      run: pnpm run wv:build
+      
+    - name: Compile extension
+      run: pnpm run compile
+      
+    - name: Package extension
+      run: pnpm run package
+      
+    - name: Upload extension artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: zokuzoku-edge-extension
+        path: zokuzoku-edge-*.vsix
+        retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+        run_install: false
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+        cache-dependency-path: |
+          pnpm-lock.yaml
+          webviews/pnpm-lock.yaml
+        
+    
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+    
+    - name: Install webviews dependencies
+      working-directory: webviews
+      run: pnpm install --frozen-lockfile
+      
+    - name: Build webviews
+      run: pnpm run wv:build
+      
+    - name: Compile extension
+      run: pnpm run compile
+      
+    - name: Package extension
+      run: pnpm run package
+      
+    - name: Increment edge version and update package.json
+      id: increment_version
+      run: |
+        # Get current version from package.json
+        CURRENT_VERSION=$(node -p "require('./package.json').version")
+        echo "Current version: $CURRENT_VERSION"
+        
+        # Parse version to extract base version and edge number
+        if [[ $CURRENT_VERSION =~ ^(.+)-edge([0-9]*)$ ]]; then
+          BASE_VERSION="${BASH_REMATCH[1]}"
+          EDGE_NUMBER="${BASH_REMATCH[2]}"
+          
+          # If no edge number exists, start with 1
+          if [ -z "$EDGE_NUMBER" ]; then
+            EDGE_NUMBER=1
+          else
+            # Increment the edge number
+            EDGE_NUMBER=$((EDGE_NUMBER + 1))
+          fi
+          
+          NEW_VERSION="${BASE_VERSION}-edge${EDGE_NUMBER}"
+        else
+          # If version doesn't match expected format, add edge1
+          NEW_VERSION="${CURRENT_VERSION}-edge1"
+        fi
+        
+        echo "New version: $NEW_VERSION"
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        
+        # Update package.json with new version
+        node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.version = '$NEW_VERSION';
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+        "
+        
+        echo "Updated package.json with version: $NEW_VERSION"
+        
+    - name: Commit version update
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add package.json
+        git commit -m "Bump version to ${{ steps.increment_version.outputs.version }} [skip ci]" || exit 0
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Check if release exists
+      id: check_release
+      run: |
+        if gh release view "v${{ steps.increment_version.outputs.version }}" >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Release v${{ steps.increment_version.outputs.version }} already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Release v${{ steps.increment_version.outputs.version }} does not exist"
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Create Release
+      if: steps.check_release.outputs.exists == 'false'
+      run: |
+        gh release create "v${{ steps.increment_version.outputs.version }}" \
+          zokuzoku-edge-*.vsix \
+          --title "ZokuZoku-Edge v${{ steps.increment_version.outputs.version }}" \
+          --notes "Automated release of ZokuZoku-Edge VSCode extension
+
+        ## Changes
+        This release includes all changes from the latest commit.
+
+        ## Installation
+        1. Download the \`zokuzoku-edge-*.vsix\` file
+        2. Open VS Code
+        3. Go to Extensions view (Ctrl+Shift+X)
+        4. Click the \"...\" menu and select \"Install from VSIX...\"
+        5. Select the downloaded file
+
+        ## What's New
+        - Automated build and release process
+        - Latest code changes from main branch
+        - Version: ${{ steps.increment_version.outputs.version }}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Update existing release
+      if: steps.check_release.outputs.exists == 'true'
+      run: |
+        # Delete existing assets
+        gh release delete-asset "v${{ steps.increment_version.outputs.version }}" "zokuzoku-edge-*.vsix" --yes || true
+        
+        # Upload new asset
+        gh release upload "v${{ steps.increment_version.outputs.version }}" zokuzoku-edge-*.vsix
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
