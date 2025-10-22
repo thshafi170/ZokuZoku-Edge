@@ -6,7 +6,7 @@
   "repository": {
     "url": "https://github.com/thshafi170/ZokuZoku-Edge"
   },
-  "version": "0.3.2-edge2",
+  "version": "0.3.2-edge1",
   "engines": {
     "vscode": "^1.90.0"
   },
