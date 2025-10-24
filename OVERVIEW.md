@@ -3,7 +3,7 @@
 ## 📁 Directory Structure
 
 ```
-ZedTest/
+zed-ext-test/
 ├── Cargo.toml              # Rust project configuration
 ├── README.md               # Project documentation
 ├── MIGRATION.md            # Detailed migration plan
