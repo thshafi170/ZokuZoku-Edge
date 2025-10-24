@@ -1,5 +1,7 @@
-out
-dist
-node_modules
-.vscode-test/
-*.vsix
+/target
+Cargo.lock
+**/*.rs.bk
+*.pdb
+.idea
+.vscode
+

@@ -1,0 +1,62 @@
+[package]
+name = "zokuzoku-zed"
+version = "0.1.0"
+edition = "2021"
+authors = ["thshafi170"]
+description = "ZokuZoku translation tool for Zed Editor"
+license = "GPL-3.0"
+
+[dependencies]
+# Zed extension API
+zed = "0.1"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client for IPC
+reqwest = { version = "0.11", features = ["json"] }
+
+# SQLite support
+rusqlite = { version = "0.30", features = ["bundled"] }
+
+# File operations
+walkdir = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Configuration
+config = "0.14"
+
+# Tar extraction
+tar = "0.4"
+flate2 = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Environment variables
+dirs = "5.0"
+
+# Python integration (for UnityPy)
+pyo3 = { version = "0.20", features = ["auto-initialize"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Async streams
+futures-util = "0.3"
+
+# Testing
+tempfile = "3"
+
+[lib]
+name = "zokuzoku"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "zokuzoku"
+path = "src/main.rs"
+
