@@ -1,0 +1,159 @@
+name: Extension Builder
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'webviews/**'
+      - 'assets/**'
+      - 'bin/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.eslintrc.json'
+      - 'build.mjs'
+      - '.vscode/**'
+      - 'vsc-extension-quickstart.md'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'webviews/**'
+      - 'assets/**'
+      - 'bin/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.eslintrc.json'
+      - 'build.mjs'
+      - '.vscode/**'
+      - 'vsc-extension-quickstart.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install webview dependencies
+        working-directory: ./webviews
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm run lint
+
+      - name: Compile extension
+        run: pnpm run compile
+
+      - name: Package extension
+        run: pnpm run package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zokuzoku-edge-vsix
+          path: "*.vsix"
+          retention-days: 30
+
+      - name: Determine version
+        id: version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # Get the latest release tag or default to v0.9.9 (so first release becomes 1.0.0)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.9.9")
+          LATEST_TAG=${LATEST_TAG#v}
+          
+          # Parse version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_TAG"
+          MAJOR=${MAJOR:-0}
+          MINOR=${MINOR:-9}
+          PATCH=${PATCH:-9}
+          
+          # Increment patch version
+          PATCH=$((PATCH + 1))
+          
+          # Check if we need to bump minor (patch reaches 6, reset to 0 and bump minor)
+          if [ "$PATCH" -gt 5 ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          fi
+          
+          # Check if we need to bump major (minor reaches 6, reset to 0 and bump major)
+          if [ "$MINOR" -gt 5 ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          fi
+          
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "NEW_TAG=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $NEW_VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$LATEST_TAG" ]; then
+            # First release - get all commits
+            CHANGELOG=$(git log --oneline --no-decorate)
+          else
+            # Get commits since last tag
+            CHANGELOG=$(git log ${LATEST_TAG}..HEAD --oneline --no-decorate)
+          fi
+          
+          # Escape newlines for GitHub output
+          CHANGELOG="${CHANGELOG//'%'/'%25'}"
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+          echo "CHANGELOG=$CHANGELOG" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: "*.vsix"
+          tag_name: ${{ steps.version.outputs.NEW_TAG }}
+          body: |
+            ## Changelog
+            ${{ steps.changelog.outputs.CHANGELOG }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
