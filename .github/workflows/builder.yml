@@ -1,0 +1,214 @@
+name: Extension Builder
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'webviews/**'
+      - 'assets/**'
+      - 'bin/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.eslintrc.json'
+      - 'build.mjs'
+      - '.vscode/**'
+      - 'vsc-extension-quickstart.md'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'webviews/**'
+      - 'assets/**'
+      - 'bin/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.eslintrc.json'
+      - 'build.mjs'
+      - '.vscode/**'
+      - 'vsc-extension-quickstart.md'
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      actions: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install webview dependencies
+        working-directory: ./webviews
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm run lint || true
+
+      - name: Compile extension
+        run: pnpm run compile
+
+      - name: Determine release and next versions
+        id: version
+        run: |
+          # Compute the release version according to rules:
+          # - Find latest plain semver tag vM.m.p (ignore -run suffixes)
+          # - Release version = increment(latest) with rules:
+          #     p += 1; if p > 5 -> p = 0; m += 1
+          #     if m > 5 -> m = 0; M += 1
+          # - If package.json contains a higher version, start from that
+          # - Ensure the chosen release version doesn't already have a tag; if it does, increment until unused
+          node - <<'NODE'
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          function inc(v){
+            const parts = v.split('.').map(n=>parseInt(n,10)||0);
+            parts[2] = (parts[2]||0) + 1;
+            if(parts[2] > 5){ parts[2] = 0; parts[1] = (parts[1]||0) + 1; }
+            if(parts[1] > 5){ parts[1] = 0; parts[0] = (parts[0]||0) + 1; parts[2] = 0; }
+            return parts.join('.');
+          }
+
+          function cmp(a,b){
+            const A=a.split('.').map(Number); const B=b.split('.').map(Number);
+            for(let i=0;i<3;i++){ if(A[i]>B[i]) return 1; if(A[i]<B[i]) return -1; }
+            return 0;
+          }
+
+          function latestTag(){
+            try{
+              const out = execSync("git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1", { encoding: 'utf8' }).trim();
+              return out || 'v0.9.9';
+            }catch(e){ return 'v0.9.9'; }
+          }
+
+          const rawLatest = latestTag().replace(/^v/,'');
+          let candidate = inc(rawLatest);
+
+          // Take package.json if it's higher than candidate
+          try{
+            const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
+            if(cmp(pkg.version, candidate) > 0){ candidate = pkg.version; }
+          }catch(e){}
+
+          // Avoid existing tags: if tag exists for candidate, increment until free
+          function tagExists(v){
+            try{ execSync(`git rev-parse -q --verify refs/tags/v${v}`); return true; }catch(e){ return false; }
+          }
+
+          while(tagExists(candidate)){
+            candidate = inc(candidate);
+          }
+
+          const release = candidate;
+          const next = inc(release);
+
+          // Write outputs in the GitHub Actions expected format
+          console.log(`RELEASE_VERSION=${release}`);
+          console.log(`NEXT_VERSION=${next}`);
+          console.log(`RELEASE_TAG=v${release}`);
+          NODE
+          # Persist to GITHUB_OUTPUT
+          node - <<'NODE' | sed -n 's/^\(RELEASE_VERSION=.*\)$/\1/p; s/^\(NEXT_VERSION=.*\)$/\1/p; s/^\(RELEASE_TAG=.*\)$/\1/p' >> $GITHUB_OUTPUT
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+          function inc(v){const p=v.split('.').map(n=>parseInt(n,10)||0);p[2]=p[2]+1;if(p[2]>5){p[2]=0;p[1]=p[1]+1;}if(p[1]>5){p[1]=0;p[0]=p[0]+1;p[2]=0;}return p.join('.');}
+          function cmp(a,b){const A=a.split('.').map(Number);const B=b.split('.').map(Number);for(let i=0;i<3;i++){if(A[i]>B[i])return 1; if(A[i]<B[i])return -1}return 0}
+          function latestTag(){try{const out=execSync("git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1",{encoding:'utf8'}).trim();return out||'v0.9.9';}catch(e){return 'v0.9.9';}}
+          const rawLatest = latestTag().replace(/^v/,'');
+          let candidate = inc(rawLatest);
+          try{const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); if(cmp(pkg.version,candidate)>0) candidate=pkg.version;}catch(e){}
+          function tagExists(v){try{execSync(`git rev-parse -q --verify refs/tags/v${v}`);return true}catch(e){return false}}
+          while(tagExists(candidate)){ candidate=inc(candidate); }
+          const release=candidate, next=inc(release);
+          console.log(`RELEASE_VERSION=${release}`);
+          console.log(`NEXT_VERSION=${next}`);
+          console.log(`RELEASE_TAG=v${release}`);
+          NODE
+
+      - name: Set package.json to release version (for packaging)
+        if: always()
+        run: |
+          RELEASE_VERSION=${{ steps.version.outputs.RELEASE_VERSION }}
+          echo "Setting package.json to $RELEASE_VERSION"
+          node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); pkg.version='$RELEASE_VERSION'; fs.writeFileSync('package.json', JSON.stringify(pkg,null,2)+'\n'); console.log('wrote package.json');"
+
+      - name: Package extension
+        run: pnpm run package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zokuzoku-edge-vsix
+          path: '*.vsix'
+          retention-days: 30
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LATEST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1 || true)
+          if [ -z "$LATEST_TAG" ]; then
+            CHANGELOG=$(git log --oneline --no-decorate)
+          else
+            # use the previous tag (not the new release tag) to get commits since last release
+            CHANGELOG=$(git log ${LATEST_TAG}..HEAD --oneline --no-decorate)
+          fi
+          # Escape for GitHub outputs
+          CHANGELOG="${CHANGELOG//'%'/'%25'}"
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+          echo "CHANGELOG=$CHANGELOG" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: '*.vsix'
+          tag_name: ${{ steps.version.outputs.RELEASE_TAG }}
+          name: ${{ steps.version.outputs.RELEASE_TAG }}
+          body: |
+            ## Changelog
+            ${{ steps.changelog.outputs.CHANGELOG }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump package.json to next version and push
+        if: always()
+        env:
+          NEXT_VERSION: ${{ steps.version.outputs.NEXT_VERSION }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Preparing package.json for next version: $NEXT_VERSION"
+          node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); pkg.version=process.env.NEXT_VERSION; fs.writeFileSync('package.json', JSON.stringify(pkg,null,2)+'\n'); console.log('package.json set to',process.env.NEXT_VERSION);"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- package.json; then
+            echo "No change to package.json (already set to $NEXT_VERSION), skipping commit"
+          else
+            git add package.json
+            git commit -m "chore: bump version to $NEXT_VERSION [skip ci]"
+            git push origin HEAD:main
+          fi
+

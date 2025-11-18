@@ -1,12 +1,12 @@
 {
-  "name": "zokuzoku",
-  "displayName": "ZokuZoku",
-  "publisher": "LeadRDRK",
-  "description": "Hachimi translation tool",
+  "name": "zokuzoku-edge",
+  "displayName": "ZokuZoku-Edge",
+  "publisher": "thshafi170",
+  "description": "Hachimi translation tool (Community version)",
   "repository": {
-    "url": "https://github.com/Hachimi-Hachimi/ZokuZoku"
+    "url": "https://github.com/thshafi170/ZokuZoku-Edge"
   },
-  "version": "0.3.2",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.90.0"
   },
