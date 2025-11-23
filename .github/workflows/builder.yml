@@ -2,7 +2,7 @@ name: Extension Builder
 
 on:
   push:
-    branches: [ main ]
+    branches: [ builder ]
     paths:
       - 'src/**'
       - 'webviews/**'
@@ -15,7 +15,7 @@ on:
       - '.vscode/**'
       - 'vsc-extension-quickstart.md'
   pull_request:
-    branches: [ main ]
+    branches: [ builder ]
     paths:
       - 'src/**'
       - 'webviews/**'
@@ -209,6 +209,6 @@ jobs:
           else
             git add package.json
             git commit -m "chore: bump version to $NEXT_VERSION [skip ci]"
-            git push origin HEAD:main
+            git push origin HEAD:builder
           fi
 
