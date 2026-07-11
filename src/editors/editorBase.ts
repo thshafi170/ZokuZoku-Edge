@@ -92,6 +92,28 @@ export class EditorBase {
         return panelDisposables;
     }
 
+    static sendTranslationMap(
+        postMessage: (msg: ControllerMessage) => void,
+        ast: jsonToAst.ValueNode,
+        astObjectsProps: Map<jsonToAst.ObjectNode, { [key: string]: jsonToAst.PropertyNode }>
+    ) {
+        const map: { [pathStr: string]: string[] } = {};
+        if (ast.type === "Object") {
+            for (const [key, prop] of Object.entries(astObjectsProps.get(ast) ?? {})) {
+                if (prop.value.type === "Literal" && typeof prop.value.value === "string") {
+                    map[key] = [prop.value.value];
+                } else if (prop.value.type === "Object") {
+                    for (const [subKey, subProp] of Object.entries(astObjectsProps.get(prop.value) ?? {})) {
+                        if (subProp.value.type === "Literal" && typeof subProp.value.value === "string") {
+                            map[`${key}/${subKey}`] = [subProp.value.value];
+                        }
+                    }
+                }
+            }
+        }
+        postMessage({ type: "setTranslationMap", map });
+    }
+
     dispose() {
         while (this.disposables.length) {
             this.disposables.pop()?.dispose();

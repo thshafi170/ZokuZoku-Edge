@@ -18,7 +18,7 @@ export default class MdbTreeDataProvider implements vscode.TreeDataProvider<vsco
                 id: name,
                 label: name,
                 command: {
-                    title: "ZokuZoku: Open MDB editor",
+                    title: vscode.l10n.t("Open MDB editor"),
                     command: "zokuzoku.openMdbEditor",
                     arguments: [ name ]
                 }

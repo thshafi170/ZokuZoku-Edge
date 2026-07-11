@@ -4,14 +4,17 @@ export interface SearchOptions {
     caseSensitive: boolean,
     regex: boolean,
     searchInContent: boolean,
-    excludeCategoryNames: boolean
+    excludeCategoryNames: boolean,
+    searchById: boolean,
+    searchInTranslation: boolean
 }
 
 export type SearchRequest = {
     type: "start",
     nodes: ITreeNode[],
     query: string,
-    options: SearchOptions
+    options: SearchOptions,
+    translationMap: { [pathStr: string]: string[] }
 }
 
 export type SearchResponse = {
@@ -39,6 +42,8 @@ function createMatcher(query: string, options: SearchOptions): Matcher {
 
 function treeSearch(
     nodes: ITreeNode[], matchString: Matcher, options: SearchOptions,
+    query: string,
+    translationMap: { [pathStr: string]: string[] },
     parents: { id: TreeNodeId, name: string }[] = []
 ) {
     function pushResult(node: ITreeNode) {
@@ -51,22 +56,27 @@ function treeSearch(
     }
 
     for (const node of nodes) {
-        let nameMatch = matchString(node.name);
+        let nameMatch = matchString(node.name) || (node.type === "entry" && node.content[0] && matchString(node.content[0].content));
         switch (node.type) {
             case "category": {
-                if (nameMatch && !options.excludeCategoryNames) {
+                let categoryIdMatch = false;
+                if (options.searchById) {
+                    categoryIdMatch = String(node.id).startsWith(query.trim());
+                }
+                if ((nameMatch && !options.excludeCategoryNames) || categoryIdMatch) {
                     pushResult({
                         ...node,
                         children: []
                     });
                 }
                 treeSearch(
-                    node.children, matchString, options,
+                    node.children, matchString, options, query,
+                    translationMap,
                     [...parents, { id: node.id, name: node.name }]
                 );
                 break;
             }
-            
+
             case "entry":
                 let contentMatch = false;
                 if (options.searchInContent) {
@@ -77,8 +87,24 @@ function treeSearch(
                         }
                     }
                 }
-
-                if (nameMatch || contentMatch) {
+                let contentIdMatch = false;
+                if (options.searchById) {
+                    contentIdMatch = String(node.id).startsWith(query.trim());
+                }
+                let translationMatch = false;
+                if (options.searchInTranslation) {
+                    const pathStr = [...parents.map(p => p.id), node.id].join("/");
+                    const translations = translationMap[pathStr] || translationMap[node.id];
+                    if (translations) {
+                        for (const t of translations) {
+                            if (t && matchString(t)) {
+                                translationMatch = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (nameMatch || contentMatch || contentIdMatch || translationMatch) {
                     pushResult(node);
                 }
                 break;
@@ -91,7 +117,7 @@ addEventListener("message", e => {
     switch (message.type) {
         case "start": {
             const matcher = createMatcher(message.query, message.options);
-            treeSearch(message.nodes, matcher, message.options);
+            treeSearch(message.nodes, matcher, message.options, message.query, message.translationMap);
 
             const res: SearchResponse = { type: "end" };
             postMessage(res);

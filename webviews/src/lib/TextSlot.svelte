@@ -87,14 +87,22 @@
 
   function doPostContent() {
     if (content === null || prevPostedContent == content) return;
-    if (!content.length) {
+
+    let contentToPost: string | null = content;
+    if (!multiline && contentToPost !== null) {
+      contentToPost = contentToPost.replace(/\\n/g, "\n");
+    }
+
+    if (contentToPost !== null && !contentToPost.length) {
+      contentToPost = null;
       content = null;
     }
+
     vscode.postMessage({
       type: "setTextSlotContent",
       entryPath,
       index,
-      content,
+      content: contentToPost,
     });
     prevPostedContent = content;
   }

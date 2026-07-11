@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { JsonDocument, JsonEdit } from '../core';
 import * as fs from 'fs';
+import { logger } from '../logger';
 
 export function getNonce(): string {
     let text = '';
@@ -28,7 +29,7 @@ export function getEditorHtml(extensionUri: vscode.Uri, webview: vscode.Webview,
             const l10nContentStr = fs.readFileSync(vscode.l10n.uri.fsPath, 'utf-8');
             l10nContents = JSON.parse(l10nContentStr);
         } catch (e) {
-            console.error("Failed to read l10n bundle:", e);
+            logger.error(`Failed to read l10n bundle: ${e}`);
         }
     }
 

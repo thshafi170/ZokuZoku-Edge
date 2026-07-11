@@ -98,10 +98,9 @@ export class LocalizeDictEditorProvider
                             nodesPromise
                                 .then(nodes => {
                                     postMessage({ type: 'setNodes', nodes });
+                                    EditorBase.sendTranslationMap(postMessage, json.ast, json.astObjectsProps);
                                 })
-                                .catch(e =>
-                                    vscode.window.showErrorMessage(String(e))
-                                );
+                                .catch(e => vscode.window.showErrorMessage("" + e));
                         });
 
                         fontHelper.onInit(webviewPanel.webview);

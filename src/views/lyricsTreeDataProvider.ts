@@ -60,7 +60,7 @@ export default class LyricsTreeDataProvider extends RefreshableTreeDataProviderB
                 label,
                 tooltip: index,
                 command: {
-                    title: "ZokuZoku: Open lyrics editor",
+                    title: vscode.l10n.t("Open lyrics editor"),
                     command: "zokuzoku.openLyricsEditor",
                     arguments: [ index ]
                 }

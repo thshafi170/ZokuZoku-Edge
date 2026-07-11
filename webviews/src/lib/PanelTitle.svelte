@@ -4,12 +4,16 @@
 
     export let label = l10n.t("Panel");
     export let actions: (IPanelAction | null)[] = [];
+    export let charCount: number | undefined = undefined;
 </script>
 
 <div class="title">
     <div class="title-label" title={label}>
         {label}
     </div>
+    {#if charCount !== undefined}
+        <span class="char-count" title={l10n.t("Character count")}>{charCount}</span>
+    {/if}
     <div class="actions-container">
         {#each actions as action}
             {#if action == null}
@@ -45,6 +49,14 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .char-count {
+        font-size: 11px;
+        color: var(--vscode-descriptionForeground, rgba(204, 204, 204, 0.7));
+        margin-right: 8px;
+        flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
     }
 
     .actions-container {

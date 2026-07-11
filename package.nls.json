@@ -37,6 +37,8 @@
   "customEditor.story.displayName": "Story Editor",
   "config.enabled.description": "Must be enabled per workspace. User settings value is ignored.",
   "config.gameDataDir.description": "Path to the game's data directory. Usually located at C:\\Users\\[YOURUSERNAME]\\AppData\\LocalLow\\Cygames\\umamusume. Only the 'meta' file and the 'master' folder is required to be present in this directory, so if you don't want ZokuZoku to mess with the game's data dir, you can symlink them to a different folder and use that as the data directory instead.",
+  "config.gameVersion.description": "Select the game version to use the correct decryption key. 'Auto' will try to detect it based on the game data directory path. 'TW/Komoe' is the Taiwan version published by Komoe (currently unencrypted).",
+  "config.manualMetaPath.description": "Path to a manually decrypted meta database file. If set, ZokuZoku will use this file instead of the built-in on-the-fly decryption path. Useful for debugging and fallback scenarios.",
   "config.localizeDictDump.description": "Path to a localize_dump.json file. You can dump the localize dict by launching the game, open the Hachimi menu and enable Translator mode in the config editor (if you haven't already), then under the Translation section, select the 'Dump localize dict' option. The dumped file will be saved in the 'hachimi' folder inside the game's install directory. You should do this every time the game updates to populate it with new data!",
   "config.autoDownloadBundles.description": "Automatically download asset bundles that haven't been downloaded yet.",
   "config.sqlite3.description": "SQLite3 command or executable path.",

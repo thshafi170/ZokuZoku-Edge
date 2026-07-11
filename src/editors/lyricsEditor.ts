@@ -68,6 +68,7 @@ export class LyricsEditorProvider extends EditorBase implements vscode.CustomTex
                     initReadPromise.finally(() => {
                         nodesPromise.then(nodes => {
                             postMessage({ type: "setNodes", nodes });
+                            EditorBase.sendTranslationMap(postMessage, json.ast, json.astObjectsProps);
                         })
                         .catch(e => vscode.window.showErrorMessage("" + e));
                     });

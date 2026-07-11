@@ -3,6 +3,7 @@ import { https } from 'follow-redirects';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import * as vscode from 'vscode';
+import { logger } from '../logger';
 
 function downloadToStream(url: string | URL, title: string, output: Writable): Thenable<void> {
     const progressOptions: vscode.ProgressOptions = {
@@ -67,7 +68,7 @@ async function downloadToFile(url: string | URL, title: string, filePath: fs.Pat
     catch (e) {
         file.destroy();
         await fsPromises.unlink(filePath).catch(() => {});
-        console.error(`${e}`);
+        logger.error(`${e}`);
         throw e;
     }
 }

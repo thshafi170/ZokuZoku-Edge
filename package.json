@@ -6,10 +6,11 @@
   "repository": {
     "url": "https://github.com/Tenshou170/ZokuZoku-Edge"
   },
-  "version": "1.1.5",
+  "version": "1.2.0",
   "engines": {
     "vscode": "^1.96.0",
-    "node": ">=22"
+    "node": ">=22",
+    "pnpm": ">=10"
   },
   "packageManager": "pnpm@10.27.0",
   "categories": [
@@ -260,6 +261,23 @@
           "scope": "machine",
           "description": "%config.gameDataDir.description%"
         },
+        "zokuzoku.gameVersion": {
+          "type": "string",
+          "default": "Auto",
+          "enum": [
+            "Auto",
+            "JP",
+            "EN/Global",
+            "TW/Komoe"
+          ],
+          "description": "%config.gameVersion.description%"
+        },
+        "zokuzoku.manualMetaPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "%config.manualMetaPath.description%"
+        },
         "zokuzoku.localizeDictDump": {
           "type": "string",
           "default": "",
@@ -314,15 +332,16 @@
     }
   },
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
-    "vscode:prepublish": "pnpm run compile",
-    "compile": "pnpm run wv:build && node build.mjs",
+    "preinstall": "node -e \"const execPath = process.env.npm_execpath || ''; if (!execPath.includes('pnpm')) { console.error('This workspace requires pnpm. Please use pnpm install instead of npm or yarn.'); process.exit(1); }\" && npx only-allow pnpm",
+    "typecheck": "tsc -p ./ --noEmit",
+    "compile": "pnpm run typecheck && pnpm run wv:check && pnpm run wv:build && node build.mjs",
     "watch": "run-p wv:watch ts:watch",
     "lint": "eslint src",
-    "package": "vsce package --no-dependencies",
+    "package": "pnpm run compile && pnpm exec vsce package --no-dependencies",
+    "wv:check": "cd webviews && pnpm run check",
     "wv:build": "cd webviews && pnpm run build",
     "wv:watch": "cd webviews && pnpm run build --watch",
-    "ts:watch": "tsc -watch -p ./",
+    "ts:watch": "tsc -watch -p ./ --noEmit",
     "l10n:export": "node scripts/extract-l10n.mjs"
   },
   "devDependencies": {
@@ -336,7 +355,7 @@
     "@typescript-eslint/eslint-plugin": "^8.14.0",
     "@typescript-eslint/parser": "^8.14.0",
     "@vscode/l10n-dev": "^0.0.35",
-    "@vscode/vsce": "^3.7.1",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.25.0",
     "esbuild-plugin-copy": "^2.1.1",
     "eslint": "^9.18.0",

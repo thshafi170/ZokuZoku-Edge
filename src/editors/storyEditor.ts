@@ -212,6 +212,61 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                         if (data.title) {
                             postMessage({ type: "setExplorerTitle", title: vscode.l10n.t("Story: {0}", { 0: data.title }) });
                         }
+
+                        const map: { [pathStr: string]: string[] } = {};
+                        if (json.ast.type === "Object") {
+                            const rootProps = json.astObjectsProps.get(json.ast);
+
+                            const titleNode = rootProps?.title?.value;
+                            if (titleNode?.type === "Literal" && typeof titleNode.value === "string") {
+                                map["title"] = [titleNode.value];
+                            }
+
+                            const textBlockList = rootProps?.text_block_list?.value;
+                            if (textBlockList?.type === "Array") {
+                                textBlockList.children.forEach((block, blockIndex) => {
+                                    if (block.type !== "Object") { return; }
+                                    const blockProps = json.astObjectsProps.get(block);
+                                    if (!blockProps) { return; }
+
+                                    const slots: string[] = [];
+
+                                    const nameNode = blockProps.name?.value;
+                                    slots[0] = (nameNode?.type === "Literal" && typeof nameNode.value === "string")
+                                        ? nameNode.value : "";
+
+                                    const textNode = blockProps.text?.value;
+                                    slots[1] = (textNode?.type === "Literal" && typeof textNode.value === "string")
+                                        ? textNode.value : "";
+
+                                    const ranges = data.contentRanges[blockIndex];
+                                    if (ranges) {
+                                        const choiceList = blockProps.choice_data_list?.value;
+                                        if (choiceList?.type === "Array") {
+                                            choiceList.children.forEach((child, i) => {
+                                                if (child.type === "Literal" && typeof child.value === "string") {
+                                                    slots[ranges.choiceDataList.at(i)] = child.value;
+                                                }
+                                            });
+                                        }
+
+                                        const colorList = blockProps.color_text_info_list?.value;
+                                        if (colorList?.type === "Array") {
+                                            colorList.children.forEach((child, i) => {
+                                                if (child.type === "Literal" && typeof child.value === "string") {
+                                                    slots[ranges.colorTextInfoList.at(i)] = child.value;
+                                                }
+                                            });
+                                        }
+                                    }
+
+                                    if (slots.some(s => s)) {
+                                        map[String(blockIndex)] = slots;
+                                    }
+                                });
+                            }
+                        }
+                        postMessage({ type: "setTranslationMap", map });
                     });
                     fontHelper.onInit(webviewPanel.webview);
                     break;

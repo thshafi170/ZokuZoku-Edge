@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { JsonDocument, type JsonEdit } from './jsonDocument';
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from '../logger';
 
 export interface LocalizedDataConfig {
     localize_dict?: string,
@@ -103,7 +104,7 @@ export class LocalizedDataManager {
 
         instance.configJson.readFile()
         .catch(reason => {
-            console.error(`${reason}`);
+            logger.error(`${reason}`);
             vscode.window.showWarningMessage(
                 vscode.l10n.t('Failed to load config.json. It will be created or overwritten automatically when it\'s used.')
             );

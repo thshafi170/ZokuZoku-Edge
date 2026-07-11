@@ -24,11 +24,14 @@
         caseSensitive: false,
         regex: false,
         searchInContent: false,
-        excludeCategoryNames: false
+        excludeCategoryNames: false,
+        searchById: false,
+        searchInTranslation: false
     };
     let searchNodes: ITreeNode[] = [];
     let searchQuery = "";
     let hideExists = false;
+    let translationMap: { [pathStr: string]: string[] } = {};
 
     function onMessage(e: MessageEvent<ControllerMessage>) {
         const message = e.data;
@@ -37,8 +40,13 @@
                 title = message.title;
                 break;
 
+            case "setTranslationMap":
+                translationMap = message.map;
+                break;
+
             case "setNodes":
                 nodes = message.nodes;
+                translationMap = {};
 
                 // Restore the currently selected node's states
                 let [currentNode, siblings] = findNodeByPath($currentPath, nodes) || [null, null];
@@ -55,6 +63,16 @@
                 tick().then(() => {
                     treeView.scrollTop = $explorerScrollTop;
                 });
+                break;
+
+            case "setTextSlotContent":
+                if (message.content !== null) {
+                    const pathStr = message.entryPath.join("/");
+                    if (!translationMap[pathStr]) {
+                        translationMap[pathStr] = [];
+                    }
+                    translationMap[pathStr][message.index] = message.content;
+                }
                 break;
         }
     }
@@ -143,7 +161,8 @@
             type: "start",
             nodes,
             query: searchQuery,
-            options: searchOptions
+            options: searchOptions,
+            translationMap
         };
         searchWorker.postMessage(message);
     }
@@ -366,7 +385,9 @@
                 <div><input type="checkbox" id="caseSensitive" bind:checked={searchOptions.caseSensitive}><label for="caseSensitive">{l10n.t("Case sensitive")}</label></div>
                 <div><input type="checkbox" id="regex" bind:checked={searchOptions.regex}><label for="regex">{l10n.t("Use regular expression")}</label></div>
                 <div><input type="checkbox" id="searchInContent" bind:checked={searchOptions.searchInContent}><label for="searchInContent">{l10n.t("Search in content")}</label></div>
+                <div><input type="checkbox" id="searchById" bind:checked={searchOptions.searchById}><label for="searchById">{l10n.t("Search by ID")}</label></div>
                 <div><input type="checkbox" id="excludeCategoryNames" bind:checked={searchOptions.excludeCategoryNames}><label for="excludeCategoryNames">{l10n.t("Exclude category names")}</label></div>
+                <div><input type="checkbox" id="searchInTranslation" bind:checked={searchOptions.searchInTranslation}><label for="searchInTranslation">{l10n.t("Search in translation")}</label></div>
             </div>
         {/if}
     </div>

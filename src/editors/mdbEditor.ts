@@ -112,6 +112,7 @@ export class MdbEditorProvider extends EditorBase implements vscode.CustomTextEd
                     // Just making sure to prevent data races
                     initReadPromise.finally(() => {
                         postMessage({ type: "setNodes", nodes: data.nodes });
+                        EditorBase.sendTranslationMap(postMessage, json.ast, json.astObjectsProps);
                     });
                     fontHelper.onInit(webviewPanel.webview);
                     break;

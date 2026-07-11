@@ -5,6 +5,7 @@ import fs from "fs/promises";
 import downloader from "./downloader";
 import config from "../config";
 import { whenReady } from '../extensionContext';
+import { getGameRegion, GameRegion } from "./utils";
 
 const assetHashCache = new Map<string, string | undefined>();
 
@@ -24,6 +25,10 @@ async function getAssetHash(name: string) {
 
 function clearAssetHashCache() {
     assetHashCache.clear();
+}
+
+function clearEncryptionCache() {
+    clearAssetHashCache();
 }
 
 function getAssetPath(hash: string) {
@@ -47,8 +52,21 @@ async function getMetaPlatform(): Promise<string | undefined> {
     return queryRes.at(0)?.rows.at(0)?.at(0)?.slice(2);
 }
 
-const ASSET_BASE_URL_JP = "https://prd-storage-game-umamusume.akamaized.net/dl/resources/";
-const ASSET_BASE_URL_GL = "https://assets-umamusume-en.akamaized.net/dl/vertical/resources/";
+const CDN_URLS: Record<GameRegion, { bundle: string; generic: string }> = {
+    jp: {
+        bundle: "https://prd-storage-game-umamusume.akamaized.net/dl/resources",
+        generic: "https://prd-storage-game-umamusume.akamaized.net/dl/resources",
+    },
+    eng: {
+        bundle: "https://assets-umamusume-en.akamaized.net/dl/vertical/resources",
+        generic: "https://assets-umamusume-en.akamaized.net/dl/vertical/resources",
+    },
+    tw: {
+        bundle: "https://l11-prod-patch-uma.komoejoy.com/release/dl/vertical/resources",
+        generic: "https://l11-prod-patch-uma.komoejoy.com/release/dl/vertical/resources",
+    },
+};
+
 let assetBaseUrl: string | undefined;
 
 async function getAssetBaseUrl(): Promise<string> {
@@ -57,19 +75,13 @@ async function getAssetBaseUrl(): Promise<string> {
     }
 
     await getMetaPlatform();
-
-    if (SQLite.detectedGameVersion === "GL") {
-        assetBaseUrl = ASSET_BASE_URL_GL;
-    } else {
-        assetBaseUrl = ASSET_BASE_URL_JP;
-    }
-
+    assetBaseUrl = CDN_URLS[getGameRegion()].bundle;
     return assetBaseUrl;
 }
 
 async function getBundleDownloadUrl(platform: string, hash: string) {
     const baseUrl = await getAssetBaseUrl();
-    return `${baseUrl}${platform}/assetbundles/${hash.slice(0, 2)}/${hash}`;
+    return `${baseUrl}/${platform}/assetbundles/${hash.slice(0, 2)}/${hash}`;
 }
 
 async function loadGenericAsset(name: string): Promise<string> {
@@ -87,7 +99,7 @@ async function loadGenericAsset(name: string): Promise<string> {
 
 async function getGenericDownloadUrl(hash: string) {
     const baseUrl = await getAssetBaseUrl();
-    return `${baseUrl}Generic/${hash.slice(0, 2)}/${hash}`;
+    return `${baseUrl}/Generic/${hash.slice(0, 2)}/${hash}`;
 }
 
 async function ensureAssetDownloaded(hash: string, isGeneric: boolean): Promise<string> {
@@ -142,5 +154,6 @@ export default {
     getAssetPath,
     ensureAssetDownloaded,
     clearAssetHashCache,
+    clearEncryptionCache,
     loadGenericAsset
 };

@@ -37,6 +37,8 @@
   "customEditor.story.displayName": "故事编辑器",
   "config.enabled.description": "必须为每个工作区单独启用。用户设置值将被忽略。",
   "config.gameDataDir.description": "游戏数据目录路径。通常位于 C:\\Users\\[你的用户名]\\AppData\\LocalLow\\Cygames\\umamusume。此目录下只需包含 'meta' 文件和 'master' 文件夹即可，因此如果不想让 ZokuZoku 操作游戏数据目录，可以将它们符号链接到其他文件夹，并将该文件夹作为数据目录使用。",
+  "config.gameVersion.description": "选择要使用的游戏版本以获取正确的解密密钥。'Auto' 会根据游戏数据目录路径尝试检测。'TW/Komoe' 是由 Komoe 发布的台湾版本（目前未加密）。",
+  "config.manualMetaPath.description": "手动解密后的 meta 数据库文件路径。如果设置，ZokuZoku 会优先使用此文件，而不是内置的即时解密路径。适用于调试和备用方案。",
   "config.localizeDictDump.description": "localize_dump.json 文件的路径。你可以通过启动游戏，打开 Hachimi 菜单，并在配置编辑器中启用翻译者模式（如果还没启用的话），然后在翻译部分选择“导出本地化字典”选项来导出本地化字典。导出的文件会保存在游戏安装目录下的 'hachimi' 文件夹中。每次游戏更新后，都应该导出一次以获取新数据！",
   "config.autoDownloadBundles.description": "自动下载尚未下载的资源包。",
   "config.sqlite3.description": "SQLite3 命令或可执行文件路径。",

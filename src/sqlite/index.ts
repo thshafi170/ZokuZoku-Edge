@@ -13,6 +13,7 @@ import { join, resolve as resolvePath } from "path";
 import config from "../config";
 import { queryEncryptedDb } from '../pythonBridge';
 import { META_KEY_GLOBAL, META_KEY_JP } from "../defines";
+import { logger } from "../logger";
 
 class SQLite {
     private extensionPath: string;
@@ -36,11 +37,19 @@ class SQLite {
         const sqliteCommand = config().get<string>("sqlite3") ?? "sqlite3";
         const gameDataDir = config().get<string>("gameDataDir");
         const mdbPath = gameDataDir ? join(gameDataDir, "master", "master.mdb") : undefined;
-        const metaPath = gameDataDir ? join(gameDataDir, "meta") : undefined;
+        let metaPath = gameDataDir ? join(gameDataDir, "meta") : undefined;
+
+        const manualMetaPath = config().get<string>("manualMetaPath")?.trim();
+        if (manualMetaPath) {
+            logger.log(`[SQLite] Overriding meta path with manual setting: ${manualMetaPath}`);
+            metaPath = manualMetaPath;
+        }
 
         this._instance = new SQLite(extensionPath, sqliteCommand, mdbPath, metaPath);
         this.detectedMetaKey = undefined;
         this.detectedGameVersion = "UNKNOWN";
+
+        logger.log(`[SQLite] Initialized: mdbPath=${mdbPath ?? ""}, metaPath=${metaPath ?? ""}, gameDataDir=${gameDataDir ?? ""}`);
     }
 
     static get instance(): SQLite {
@@ -107,8 +116,10 @@ class SQLite {
             throw new Error("Unable to execute query: provide a valid sqlite3 executable in the setting zokuzoku.sqlite3.");
         }
 
+        logger.log(`[SQLite] query (unencrypted): ${query.substring(0, 120)}${query.length > 120 ? '...' : ''}`);
         const queryRes = await executeQuery(this.sqliteCommand, dbPath, query, options);
         if (queryRes.error) {
+            logger.error(`[SQLite] query error: ${queryRes.error}`);
             throw queryRes.error;
         }
         return queryRes.resultSet!;
@@ -123,22 +134,35 @@ class SQLite {
 
     async queryMeta(query: string, options?: QueryExecutionOptions): Promise<ResultSet> {
         if (!this.metaPath) {
+            logger.error("[SQLite] CRITICAL: this.metaPath is not set! gameDataDir is missing.");
             throw new Error("Query cannot be performed because the game data directory is not set.");
+        }
+
+        const { isMetaEncrypted } = await import("../core/encryption.js");
+        if (!isMetaEncrypted()) {
+            logger.log(`[SQLite] queryMeta (unencrypted region): ${query.substring(0, 120)}${query.length > 120 ? '...' : ''}`);
+            return this.query(this.metaPath, query, options);
         }
 
         const useDecryption = config().get<boolean>("decryption.enabled");
         if (!useDecryption) {
+            logger.log(`[SQLite] decryption.disabled -> querying plaintext meta path: ${query.substring(0, 120)}${query.length > 120 ? '...' : ''}`);
             return this.query(this.metaPath, query, options);
-        } else {
-            try {
-                const key = await SQLite.getMetaKey();
-                const absoluteMetaPath = resolvePath(this.metaPath);
-                return await queryEncryptedDb(absoluteMetaPath, query, key);
-            } catch (e) {
-                const err = e as Error;
-                window.showErrorMessage(`Failed to query encrypted meta DB: ${err.message}`);
-                throw err;
-            }
+        }
+
+        try {
+            logger.log(`[SQLite] queryMeta start: ${query.substring(0, 120)}${query.length > 120 ? '...' : ''}`);
+            const key = await SQLite.getMetaKey();
+            const absoluteMetaPath = resolvePath(this.metaPath);
+            logger.log(`[SQLite] Executing encrypted query on ${absoluteMetaPath}...`);
+            const result = await queryEncryptedDb(absoluteMetaPath, query, key);
+            logger.log(`[SQLite] Encrypted query completed with ${result[0]?.rows.length ?? 0} rows.`);
+            return result;
+        } catch (e) {
+            const err = e as Error;
+            logger.error(`[SQLite] Failed to query encrypted meta DB: ${err.message}`);
+            window.showErrorMessage(`Failed to query encrypted meta DB: ${err.message}`);
+            throw err;
         }
     }
 
@@ -148,6 +172,7 @@ class SQLite {
         } catch (e) {
             const message = (e as Error).message;
             console.error(message);
+            logger.error(message);
             window.showErrorMessage(message);
             this.sqliteCommand = "";
         }

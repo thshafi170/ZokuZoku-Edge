@@ -7,7 +7,7 @@ import os from 'os';
 import { PathLike } from 'fs';
 import { spawn } from 'child_process';
 import config from '../config';
-import { STEAM_APP_ID_GLOBAL, STEAM_APP_ID_JP } from '../defines';
+import { logger } from '../logger';
 import { LocalizedDataManager } from './localizedDataManager';
 
 export enum EntryStatus {
@@ -48,7 +48,7 @@ export async function getTranslatedTextData(): Promise<any> {
                  const str = Buffer.from(data).toString('utf8');
                  _translatedTextDataCache = JSON.parse(str);
              } catch (e) {
-                 console.error(`${e}`);
+                 logger.error(`${e}`);
                  _translatedTextDataCache = null;
              }
          } else {
@@ -257,6 +257,44 @@ async function queryRegistry(key: string, value: string): Promise<string | undef
 }
 
 const DMM5_CONFIG_PATH = path.join(os.homedir(), "AppData", "Roaming", "dmmgameplayer5", "dmmgame.cnf");
+const EDGE_STEAM_APP_ID_JP = "3564400";
+const EDGE_STEAM_APP_ID_GLOBAL = "3224770";
+
+const STEAM_APP_FOLDER: { [appId: string]: string } = {
+    [EDGE_STEAM_APP_ID_JP]: "UmamusumePrettyDerby_Jpn",
+    [EDGE_STEAM_APP_ID_GLOBAL]: "UmamusumePrettyDerby",
+};
+
+const KOMOE_UNINSTALL_KEY = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\komoemumamusume`;
+const APPDATA_LOCALLOW = path.join(os.homedir(), "AppData", "LocalLow");
+
+async function getSteamRegistryPath(): Promise<string | undefined> {
+    if (os.platform() !== 'win32') {
+        return undefined;
+    }
+    return queryRegistry(`HKCU\\Software\\Valve\\Steam`, 'SteamPath');
+}
+
+function parseSteamLibraryFolders(vdf: string): string[] {
+    const libraryPaths: string[] = [];
+    const pathPattern = /^\s*"path"\s+"(.+)"\s*$/gim;
+    let match: RegExpExecArray | null;
+
+    while ((match = pathPattern.exec(vdf)) !== null) {
+        libraryPaths.push(match[1].replace(/\\\\/g, '\\'));
+    }
+
+    return libraryPaths;
+}
+
+function getDataDirCandidates(installDir: string): string[] {
+    return [
+        path.join(installDir, "umamusume_data", "persistent"),
+        path.join(APPDATA_LOCALLOW, "Cygames", "Umamusume"),
+        path.join(APPDATA_LOCALLOW, "Cygames", "umamusume"),
+        path.join(installDir, "komoemumamusume Game"),
+    ];
+}
 
 export async function getAllGameInstallPaths(): Promise<string[]> {
     const paths: string[] = [];
@@ -272,7 +310,7 @@ export async function getAllGameInstallPaths(): Promise<string[]> {
     catch {}
 
     if (os.platform() === 'win32') {
-        const steamAppIds = [STEAM_APP_ID_JP, STEAM_APP_ID_GLOBAL];
+        const steamAppIds = [EDGE_STEAM_APP_ID_JP, EDGE_STEAM_APP_ID_GLOBAL];
 
         for (const appId of steamAppIds) {
             const steamKey = `HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App ${appId}`;
@@ -284,9 +322,76 @@ export async function getAllGameInstallPaths(): Promise<string[]> {
                 }
             }
         }
+
+        try {
+            const steamPath = await getSteamRegistryPath();
+            if (steamPath) {
+                const vdfPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
+                const vdfContent = await fs.readFile(vdfPath, { encoding: 'utf8' });
+                const libraryRoots = parseSteamLibraryFolders(vdfContent);
+                const results = new Set<string>([steamPath, ...libraryRoots]);
+
+                for (const libRoot of results) {
+                    for (const appId of steamAppIds) {
+                        const folderName = STEAM_APP_FOLDER[appId];
+                        if (!folderName) { continue; }
+                        const candidate = path.join(libRoot, 'steamapps', 'common', folderName);
+                        if (await pathExists(candidate) && !paths.includes(candidate)) {
+                            paths.push(candidate);
+                        }
+                    }
+                }
+            }
+        }
+        catch {}
+
+        try {
+            const komoeExe = await queryRegistry(KOMOE_UNINSTALL_KEY, 'DisplayIcon');
+            if (komoeExe) {
+                const komoeInstallDir = path.dirname(komoeExe);
+                if (await pathExists(komoeInstallDir) && !paths.includes(komoeInstallDir)) {
+                    paths.push(komoeInstallDir);
+                }
+            }
+        }
+        catch {}
     }
 
     return paths;
+}
+
+export async function getAllGameDataDirs(): Promise<string[]> {
+    const installPaths = await getAllGameInstallPaths();
+    const seen = new Set<string>();
+    const candidates: string[] = [];
+
+    for (const installDir of installPaths) {
+        for (const candidate of getDataDirCandidates(installDir)) {
+            if (!seen.has(candidate)) {
+                seen.add(candidate);
+                candidates.push(candidate);
+            }
+        }
+    }
+
+    for (const appDataCandidate of [
+        path.join(APPDATA_LOCALLOW, "Cygames", "Umamusume"),
+        path.join(APPDATA_LOCALLOW, "Cygames", "umamusume"),
+    ]) {
+        if (!seen.has(appDataCandidate)) {
+            seen.add(appDataCandidate);
+            candidates.push(appDataCandidate);
+        }
+    }
+
+    const result: string[] = [];
+    for (const candidate of candidates) {
+        if (await pathExists(candidate)) {
+            result.push(candidate);
+        }
+    }
+
+    return result;
 }
 
 let cachedInstallPath: string | undefined;
@@ -323,12 +428,63 @@ export async function updateHachimiConfig(callback: (config: any) => any) {
         return res;
     } catch (e: any) {
         if (e.code === 'ENOENT') {
-            console.warn(`hachimi/config.json not found at ${configPath}. Skipping update.`);
+            logger.warn(`hachimi/config.json not found at ${configPath}. Skipping update.`);
             return;
         }
 
         throw new Error(`Failed to read or update hachimi config at ${configPath}. Error: ${e}`);
     }
+}
+
+export type GameRegion = "jp" | "eng" | "tw";
+
+export function getGameRegion(): GameRegion {
+    const gameVersion = config().get<string>("gameVersion") || "Auto";
+    const gameDataDir = config().get<string>("gameDataDir") || "";
+
+    if (gameVersion === "JP") {
+        return "jp";
+    }
+    if (gameVersion === "EN/Global") {
+        return "eng";
+    }
+    if (gameVersion === "TW/Komoe") {
+        return "tw";
+    }
+
+    const normalized = gameDataDir.replace(/\\/g, "/");
+    const lowerDir = normalized.toLowerCase();
+
+    if (lowerDir.includes("komoemumamusume")) {
+        return "tw";
+    }
+
+    if (
+        lowerDir.includes("steamapps/common") &&
+        lowerDir.includes("jpn") &&
+        lowerDir.includes("persistent")
+    ) {
+        return "jp";
+    }
+
+    if (
+        normalized.includes("AppData") &&
+        normalized.includes("Cygames")
+    ) {
+        if (normalized.includes("/Umamusume") || normalized.includes("\\Umamusume")) {
+            return "eng";
+        }
+        return "jp";
+    }
+
+    if (
+        lowerDir.includes("umamusume_data") &&
+        lowerDir.includes("persistent")
+    ) {
+        return "jp";
+    }
+
+    return "jp";
 }
 
 export function expandEnvironmentVariables(pathString: string): string {

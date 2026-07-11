@@ -65,7 +65,7 @@ export function gotoNode(node: ITreeNode, path: TreeNodeId[]) {
 export function translatedSlotProps(slot: ITextSlot) {
     return {
         ...slot,
-        content: undefined,
+        content: null,
         postContent: true
     }
 }
@@ -73,7 +73,7 @@ export function translatedSlotProps(slot: ITextSlot) {
 export function makeContentDisplayValue(
     value: string | null, lineWidth: number, config: StoryEditorConfig | null, readonly: boolean
 ) {
-    const val = value?.replace(/\\n/g, "\n") ?? "";
+    const val = value?.replace(/\\n/g, "\n").replace(/<n>/gi, " ") ?? "";
     return config?.noWrap === false && config.lineWidthMultiplier ?
         wrapText(val, lineWidth, config.lineWidthMultiplier).join("\n") :
         val;

@@ -16,6 +16,7 @@ import { MdbTableName } from './sqlite';
 import fs from 'fs/promises';
 import path from 'path';
 import { ZOKUZOKU_DIR } from './defines';
+import assetHelper from './core/assetHelper';
 
 type CommandTree = {[key: string]: ((...args: any[]) => any) | CommandTree};
 
@@ -160,6 +161,7 @@ const COMMANDS: CommandTree = {
             }, async () => {
                 try {
                     await fs.rm(path.join(ZOKUZOKU_DIR, "cache"), { recursive: true, force: true });
+                    assetHelper.clearEncryptionCache();
                     vscode.window.showInformationMessage(vscode.l10n.t("Cache cleared."));
                 }
                 catch (e) {

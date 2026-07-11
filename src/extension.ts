@@ -6,7 +6,7 @@ import * as tar from 'tar';
 import { spawn } from "child_process";
 
 import downloader from './core/downloader';
-import { getAllGameInstallPaths, getEntryStatus } from './core/utils';
+import { getAllGameDataDirs, getAllGameInstallPaths, getEntryStatus } from './core/utils';
 import config, { CONFIG_SECTION } from './config';
 import { setReady } from './extensionContext';
 import { ZOKUZOKU_DIR, PYMPORT_DIR, PYTHON_PACKAGES_DIR, PYMPORT_INSTALLED_FILE, PYMPORT_VER, UNITYPY_VER, APSW_VER } from "./defines";
@@ -19,6 +19,7 @@ const OK = vscode.l10n.t('OK');
 const CANCEL = vscode.l10n.t('Cancel');
 
 import { initPythonBridge, getUnityPyVersion, checkApsw } from './pythonBridge';
+import { logger } from './logger';
 
 async function checkPymport(): Promise<boolean> {
     try {
@@ -64,7 +65,7 @@ async function checkUnityPy(): Promise<boolean> {
         return versionResult.unitypy_version === UNITYPY_VER;
     }
     catch (e) {
-        console.error(`checkUnityPy failed: ${e}`);
+        logger.error(`checkUnityPy failed: ${e}`);
         return false;
     }
 }
@@ -74,7 +75,7 @@ async function checkApswPackage(): Promise<boolean> {
         const result = await checkApsw();
         return result.apsw_installed;
     } catch (e) {
-        console.error(`checkApswPackage failed: ${e}`);
+        logger.error(`checkApswPackage failed: ${e}`);
         return false;
     }
 }
@@ -123,36 +124,26 @@ async function installUnityPy() {
 
 const GAME_DATA_FILES = ["meta", path.join("master", "master.mdb")];
 
+async function isValidGameDataDir(dir: string): Promise<boolean> {
+    for (const file of GAME_DATA_FILES) {
+        try {
+            await fs.stat(path.join(dir, file));
+        } catch {
+            return false;
+        }
+    }
+    return true;
+}
+
 async function checkGameDataDir() {
     if (config().get("gameDataDir")) { return; }
 
-    const foundGameDataDirs: string[] = [];
-    const potentialDataDirs = new Set<string>();
+    const candidates = await getAllGameDataDirs();
+    const validDirs = (await Promise.all(
+        candidates.map(async dir => ({ dir, valid: await isValidGameDataDir(dir) }))
+    )).filter(r => r.valid);
 
-    const localLowBase = path.join(os.homedir(), "AppData", "LocalLow", "Cygames");
-    potentialDataDirs.add(path.join(localLowBase, "Umamusume"));
-    potentialDataDirs.add(path.join(localLowBase, "umamusume"));
-
-    const installPaths = await getAllGameInstallPaths();
-    for (const installPath of installPaths) {
-        potentialDataDirs.add(path.join(installPath, "umamusume_Data", "Persistent"));
-        potentialDataDirs.add(path.join(installPath, "UmamusumePrettyDerby_Jpn_Data", "Persistent"));
-    }
-
-    for (const dir of potentialDataDirs) {
-        let isDirValid = true;
-        for (const file of GAME_DATA_FILES) {
-            try {
-                await fs.stat(path.join(dir, file));
-            } catch {
-                isDirValid = false;
-                break;
-            }
-        }
-        if (isDirValid) {
-            foundGameDataDirs.push(dir);
-        }
-    }
+    const foundGameDataDirs = validDirs.map(r => r.dir);
 
     if (foundGameDataDirs.length === 0) {
         throw new Error(vscode.l10n.t("Game data directory was not automatically detected. Please set it manually in Settings."));
@@ -309,11 +300,14 @@ async function startCore(context: vscode.ExtensionContext) {
 }
 
 async function tryActivate(context: vscode.ExtensionContext) {
+    logger.log("ZokuZoku activating...");
     try {
         await runInitialSetup(context);
         await startCore(context);
+        logger.log("ZokuZoku activation completed.");
     } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
+        logger.error(`ZokuZoku setup failed: ${message}`);
         vscode.window.showErrorMessage(`ZokuZoku setup failed: ${message}`, "Retry Setup")
             .then((selection: string | undefined) => {
                 if (selection === "Retry Setup") {

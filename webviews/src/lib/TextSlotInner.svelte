@@ -25,6 +25,7 @@
     bind:value
     {placeholder}
     {title}
+    data-slot-type={userData?.type}
     on:focus
     on:blur
     on:keydown
@@ -41,6 +42,7 @@
     bind:value
     {placeholder}
     {title}
+    data-slot-type={userData?.type}
     on:focus
     on:blur
     on:keydown

@@ -36,6 +36,9 @@ export type ControllerMessage = {
     uris: {[key: string]: string}
 } | {
     type: "enableVoicePlayer"
+} | {
+    type: "setTranslationMap",
+    map: { [pathStr: string]: string[] }
 };
 
 export type StoryEditorControllerMessage = ControllerMessage | {
