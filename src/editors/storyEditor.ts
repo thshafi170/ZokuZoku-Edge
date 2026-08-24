@@ -205,7 +205,8 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                                 isStoryView: assetInfo.isStoryView,
                                 lineSpacingMultiplier: config?.text_frame_line_spacing_multiplier,
                                 fontSizeMultiplier: config?.text_frame_font_size_multiplier,
-                                lineWidthMultiplier: config?.line_width_multiplier
+                                lineWidthMultiplier: config?.line_width_multiplier,
+                                voiceVolume: vscode.workspace.getConfiguration("zokuzoku").get<number>("voiceVolume", 1.0)
                             }
                         });
                         postMessage({ type: "setNodes", nodes: data.nodes });
@@ -258,6 +259,8 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                                                 }
                                             });
                                         }
+
+
                                     }
 
                                     if (slots.some(s => s)) {
@@ -327,7 +330,8 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                         }
                         else {
                             const isChoiceData = ranges.choiceDataList.contains(index);
-                            if (isChoiceData || ranges.colorTextInfoList.contains(index)) {
+                            const isColorText = ranges.colorTextInfoList.contains(index);
+                            if (isChoiceData || isColorText) {
                                 const textBlock = textBlockList.children[blockIndex];
                                 if (!textBlock || textBlock.type !== "Object") {
                                     return vscode.window.showErrorMessage(vscode.l10n.t("Invalid text block dict at index {0}", { 0: blockIndex }));
@@ -545,6 +549,7 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
         let prevFemaleNode: IEntryTreeNode | undefined;
         const voiceCues: [string, number][] = [];
         let globalCueOffset = 0;
+        let isSharedGenderPair = false;
 
         for (const [i, block] of timelineData.blockList.entries()) {
             const content: IStoryTextSlot[] = [
@@ -600,6 +605,8 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
             }
             const colorRange = new ContentRange(start, end);
 
+
+
             const id = i;
             let name = id.toString();
             const differenceFlag = block.differenceFlag;
@@ -626,7 +633,13 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                 case DifferenceFlag.GenderMale:
                     name += ` (${vscode.l10n.t("male trainer")})`;
                     updatePrevMaleNode();
-                    cueOffset = 1;
+                    if (i + 1 < timelineData.blockList.length) {
+                        const nextBlock = timelineData.blockList[i + 1];
+                        if (nextBlock.differenceFlag === DifferenceFlag.GenderFemale && nextBlock.cueId === block.cueId) {
+                            cueOffset = 1;
+                            isSharedGenderPair = true;
+                        }
+                    }
                     break;
                 case DifferenceFlag.GenderFemale:
                     name += ` (${vscode.l10n.t("female trainer")})`;
@@ -637,6 +650,12 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                     updatePrevFemaleNode();
                     break;
             }
+
+            const tags: string[] = [];
+            if (choiceRange.start < choiceRange.end) { tags.push("choice"); }
+            if (colorRange.start < colorRange.end) { tags.push("color text"); }
+
+            if (tags.length) { name += ` (${tags.join(", ")})`; }
 
             const node: ITreeNode<IStoryTextSlot> = {
                 type: "entry",
@@ -663,8 +682,9 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                     break;
                 case DifferenceFlag.GenderFemale:
                     prevFemaleNode = node;
-                    if (cueId !== -1) {
+                    if (cueId !== -1 && isSharedGenderPair) {
                         globalCueOffset += 1;
+                        isSharedGenderPair = false;
                     }
                     break;
             }

@@ -154,6 +154,9 @@ def handle_extract_story_data(params):
     block_list_data = []
     raw_block_list = timeline_data.BlockList
     for block in raw_block_list[1:]:
+        # skip non-text blocks with empty ClipLists
+        if not block.TextTrack.ClipList or len(block.TextTrack.ClipList) == 0:
+            continue
         text_clip_ptr = block.TextTrack.ClipList[0]
         if not text_clip_ptr: continue
 
@@ -168,7 +171,7 @@ def handle_extract_story_data(params):
             })
 
         color_texts = []
-        for color_text in text_clip.ColorTextInfoList:
+        for color_text in getattr(text_clip, 'ColorTextInfoList', []):
             color_texts.append({ "text": color_text.Text })
 
         block_list_data.append({
@@ -208,7 +211,7 @@ def main():
         import traceback
         response = {"status": "error", "message": f"{str(e)}\n{traceback.format_exc()}"}
 
-    print(json.dumps(response))
+    print(json.dumps(response, ensure_ascii=False))
 
 if __name__ == "__main__":
     main()

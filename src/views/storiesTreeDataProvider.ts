@@ -51,6 +51,152 @@ const categoryNames: {[key: string]: string} = {
     "83": vscode.l10n.t("> Support Card Events (SSR)")
 };
 
+let extraStoryMapPromise: Promise<Map<string, number>> | undefined;
+let eventStoryMapPromise: Promise<Map<string, number>> | undefined;
+let mainStoryMapPromise: Promise<Map<string, number>> | undefined;
+let singleModeMapPromise: Promise<Map<string, number>> | undefined;
+let campaignStoryMapPromise: Promise<Map<string, number>> | undefined;
+
+async function getExtraStoryMapping(): Promise<Map<string, number>> {
+    if (!extraStoryMapPromise) {
+        extraStoryMapPromise = (async () => {
+            const map = new Map<string, number>();
+            try {
+                const res = await SQLite.instance.queryMdb(
+                    `SELECT story_extra_id, story_id_1, story_id_2, story_id_3, story_id_4, story_id_5 FROM story_extra_story_data`
+                );
+                if (res && res[0] && res[0].rows) {
+                    for (const row of res[0].rows) {
+                        const exRowId = Number(row[0]);
+                        for (let i = 1; i < row.length; i++) {
+                            const stId = row[i];
+                            if (stId) {
+                                const stStr = String(stId);
+                                map.set(stStr, exRowId);
+                                if (stStr.startsWith("10") && stStr.length >= 9) {
+                                    map.set(stStr.slice(2, 6), exRowId);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to query story_extra_story_data", e);
+            }
+            return map;
+        })();
+    }
+    return extraStoryMapPromise;
+}
+
+async function getEventStoryMapping(): Promise<Map<string, number>> {
+    if (!eventStoryMapPromise) {
+        eventStoryMapPromise = (async () => {
+            const map = new Map<string, number>();
+            try {
+                const res = await SQLite.instance.queryMdb(
+                    `SELECT story_event_id, story_id_1, story_id_2, story_id_3, story_id_4, story_id_5 FROM story_event_story_data`
+                );
+                if (res && res[0] && res[0].rows) {
+                    for (const row of res[0].rows) {
+                        const evRowId = Number(row[0]);
+                        for (let i = 1; i < row.length; i++) {
+                            const stId = row[i];
+                            if (stId) {
+                                const stStr = String(stId);
+                                map.set(stStr, evRowId);
+                                if (stStr.startsWith("9") && stStr.length >= 9) {
+                                    map.set(stStr.slice(2, 6), evRowId);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to query story_event_story_data", e);
+            }
+            return map;
+        })();
+    }
+    return eventStoryMapPromise;
+}
+
+async function getMainStoryMapping(): Promise<Map<string, number>> {
+    if (!mainStoryMapPromise) {
+        mainStoryMapPromise = (async () => {
+            const map = new Map<string, number>();
+            try {
+                const res = await SQLite.instance.queryMdb(
+                    `SELECT id, story_id_1, story_id_2, story_id_3, story_id_4, story_id_5 FROM main_story_data`
+                );
+                if (res && res[0] && res[0].rows) {
+                    for (const row of res[0].rows) {
+                        const msId = Number(row[0]);
+                        for (let i = 1; i < row.length; i++) {
+                            const stId = row[i];
+                            if (stId) {
+                                const stStr = String(stId);
+                                if (stStr.startsWith("20") && stStr.length >= 8) {
+                                    map.set("020" + stStr.slice(2), msId);
+                                }
+                                map.set(stStr, msId);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to query main_story_data", e);
+            }
+            return map;
+        })();
+    }
+    return mainStoryMapPromise;
+}
+
+async function getSingleModeMapping(): Promise<Map<string, number>> {
+    if (!singleModeMapPromise) {
+        singleModeMapPromise = (async () => {
+            const map = new Map<string, number>();
+            try {
+                const res = await SQLite.instance.queryMdb(
+                    `SELECT short_story_id, story_id FROM single_mode_story_data WHERE short_story_id > 0`
+                );
+                if (res && res[0] && res[0].rows) {
+                    for (const row of res[0].rows) {
+                        map.set(String(row[0]), Number(row[1]));
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to query single_mode_story_data", e);
+            }
+            return map;
+        })();
+    }
+    return singleModeMapPromise;
+}
+
+async function getCampaignStoryMapping(): Promise<Map<string, number>> {
+    if (!campaignStoryMapPromise) {
+        campaignStoryMapPromise = (async () => {
+            const map = new Map<string, number>();
+            try {
+                const res = await SQLite.instance.queryMdb(
+                    `SELECT id, story_id FROM campaign_story_data`
+                );
+                if (res && res[0] && res[0].rows) {
+                    for (const row of res[0].rows) {
+                        map.set(String(row[0]), Number(row[1]));
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to query campaign_story_data", e);
+            }
+            return map;
+        })();
+    }
+    return campaignStoryMapPromise;
+}
+
 export default class StoriesTreeDataProvider extends RefreshableTreeDataProviderBase implements vscode.TreeDataProvider<vscode.TreeItem> {
     private static _instance?: StoriesTreeDataProvider;
     static get instance(): StoriesTreeDataProvider | undefined { return this._instance; }
@@ -62,8 +208,13 @@ export default class StoriesTreeDataProvider extends RefreshableTreeDataProvider
 
     private async getGroupName(categoryId: string, groupId: string): Promise<string | undefined> {
         switch (+categoryId) {
+            case 2:
+                return (await utils.getTextDataCategoryCached(112))[+groupId];
             case 4:
-            case 50: {
+            case 11:
+            case 12:
+            case 50:
+            case 80: {
                 if (config().get<boolean>("showTranslatedCharacterNames")) {
                     const translatedData = await utils.getTranslatedTextData();
                     if (translatedData && translatedData["6"]) {
@@ -77,18 +228,90 @@ export default class StoriesTreeDataProvider extends RefreshableTreeDataProvider
                 const characterNames = await utils.getTextDataCategoryCached(6);
                 return characterNames[+groupId];
             }
+            case 8:
             case 40:
-                return (await utils.getTextDataCategory(119))[+groupId]?.replaceAll("\\n", " ");
+                return (await utils.getTextDataCategoryCached(119))[+groupId]?.replaceAll("\\n", " ");
+            case 9: {
+                const map = await getEventStoryMapping();
+                const eventId = map.get(groupId);
+                if (eventId) {
+                    return (await utils.getTextDataCategoryCached(189))[eventId];
+                }
+                break;
+            }
+            case 10: {
+                const map = await getExtraStoryMapping();
+                const extraId = map.get(groupId);
+                if (extraId) {
+                    return (await utils.getTextDataCategoryCached(221))[extraId];
+                }
+                break;
+            }
+            case 82:
+            case 83: {
+                const offset = +categoryId === 82 ? 20000 : 30000;
+                return (await utils.getTextDataCategoryCached(76))[offset + (+groupId)];
+            }
         }
     }
 
     private async getStoryName(categoryId: string, storyId: string) {
         switch (+categoryId) {
-            case 4:
-                return (await utils.getTextDataCategory(92))[+storyId];
+            case 2: {
+                const map = await getMainStoryMapping();
+                const msId = map.get(storyId);
+                if (msId) {
+                    const title = (await utils.getTextDataCategoryCached(94))[msId];
+                    if (title) { return title; }
+                }
+                break;
+            }
+            case 4: {
+                const title = (await utils.getTextDataCategoryCached(92))[+storyId];
+                if (title) { return title; }
+                break;
+            }
+            case 8: {
+                const title = (await utils.getTextDataCategoryCached(119))[+storyId % 1000];
+                if (title) { return title.replaceAll("\\n", " "); }
+                break;
+            }
+            case 9: {
+                const map = await getEventStoryMapping();
+                const evRowId = map.get(storyId);
+                if (evRowId) {
+                    const title = (await utils.getTextDataCategoryCached(191))[evRowId];
+                    if (title) { return title; }
+                }
+                break;
+            }
+            case 10: {
+                const map = await getExtraStoryMapping();
+                const exRowId = map.get(storyId);
+                if (exRowId) {
+                    const title = (await utils.getTextDataCategoryCached(222))[exRowId];
+                    if (title) { return title; }
+                }
+                break;
+            }
+            case 11:
+            case 12: {
+                const map = await getCampaignStoryMapping();
+                const targetStoryId = map.get(storyId) ?? +storyId;
+                const title = (await utils.getTextDataCategoryCached(181))[targetStoryId];
+                if (title) { return title; }
+                break;
+            }
+            case 40: {
+                const title = (await utils.getTextDataCategoryCached(119))[+storyId];
+                if (title) { return title.replaceAll("\\n", " "); }
+                break;
+            }
         }
     
-        return (await utils.getTextDataCategoryCached(181))[+storyId];
+        const singleModeMap = await getSingleModeMapping();
+        const mappedStoryId = singleModeMap.get(storyId) ?? +storyId;
+        return (await utils.getTextDataCategoryCached(181))[mappedStoryId];
     }
 
     static register(_context: vscode.ExtensionContext): vscode.Disposable {

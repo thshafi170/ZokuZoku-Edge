@@ -6,7 +6,7 @@
   "repository": {
     "url": "https://github.com/Tenshou170/ZokuZoku-Edge"
   },
-  "version": "1.2.0",
+  "version": "1.2.1",
   "engines": {
     "vscode": "^1.96.0",
     "node": ">=22",
@@ -258,7 +258,6 @@
         "zokuzoku.gameDataDir": {
           "type": "string",
           "default": "",
-          "scope": "machine",
           "description": "%config.gameDataDir.description%"
         },
         "zokuzoku.gameVersion": {
@@ -275,7 +274,6 @@
         "zokuzoku.manualMetaPath": {
           "type": "string",
           "default": "",
-          "scope": "machine",
           "description": "%config.manualMetaPath.description%"
         },
         "zokuzoku.localizeDictDump": {
@@ -327,6 +325,13 @@
           "type": "boolean",
           "default": true,
           "description": "%config.showTranslatedCharacterNames.description%"
+        },
+        "zokuzoku.voiceVolume": {
+          "type": "number",
+          "default": 1.0,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "%config.voiceVolume.description%"
         }
       }
     }

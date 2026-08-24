@@ -80,6 +80,7 @@
 
     $: $currentPath, (() => {
         charCount = 0;
+        (document.activeElement as HTMLElement | null)?.blur();
     })();
 </script>
 

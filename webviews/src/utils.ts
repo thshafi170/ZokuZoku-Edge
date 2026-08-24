@@ -78,3 +78,17 @@ export function makeContentDisplayValue(
         wrapText(val, lineWidth, config.lineWidthMultiplier).join("\n") :
         val;
 }
+
+export function highlightTags(text: string | null): string {
+    if (!text) return "";
+    const escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    // highlight game tags and line-break markers
+    return escaped.replace(
+        /(&lt;\/?[a-zA-Z_][\w]*(?:\s*=\s*[^&<>]*)?\&gt;|\\n|\\\\n)/g,
+        '<span class="tag-highlight">$1</span>',
+    );
+}

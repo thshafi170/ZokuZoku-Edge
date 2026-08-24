@@ -51,7 +51,8 @@ export interface StoryEditorConfig {
     isStoryView: boolean,
     lineSpacingMultiplier?: number,
     fontSizeMultiplier?: number,
-    lineWidthMultiplier?: number
+    lineWidthMultiplier?: number,
+    voiceVolume?: number
 }
 
 export type EditorMessage = {

@@ -8,6 +8,8 @@
   import { currentPath } from "../stores";
   import * as l10n from "@vscode/l10n";
 
+  import { config } from "../storyEditor/stores";
+
   export let inner = OriginalViewInner;
 
   let actions: IPanelAction[] | undefined;
@@ -30,6 +32,10 @@
   function updateVoiceSrc(path: TreeNodeId[]) {
     if (!audioElement) return;
 
+    if ($config?.voiceVolume !== undefined) {
+      audioElement.volume = Math.max(0, Math.min(1, $config.voiceVolume));
+    }
+
     const index = path.join("/");
     let src = voiceUris?.[index] || "";
     if (src) {
@@ -43,6 +49,10 @@
       );
     }
     voiceSrc = src;
+  }
+
+  $: if (audioElement && $config?.voiceVolume !== undefined) {
+    audioElement.volume = Math.max(0, Math.min(1, $config.voiceVolume));
   }
 
   $: !audioPlayerHidden && updateVoiceSrc($currentPath);

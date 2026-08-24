@@ -29,14 +29,18 @@ export function detectKeyType(): string {
         return "tw";
     }
 
+    // Steam JP / ENG
     if (
         lowerDir.includes("steamapps/common") &&
-        lowerDir.includes("jpn") &&
         lowerDir.includes("persistent")
     ) {
-        return "jp";
+        if (lowerDir.includes("jpn")) {
+            return "jp";
+        }
+        return "eng";
     }
 
+    // AppData "Umamusume" (uppercase) -> EN/Global, "umamusume" (lowercase) -> JP
     if (
         normalized.includes("AppData") &&
         normalized.includes("Cygames")
@@ -47,10 +51,11 @@ export function detectKeyType(): string {
         return "jp";
     }
 
-    if (
-        lowerDir.includes("umamusume_data") &&
-        lowerDir.includes("persistent")
-    ) {
+    // DMM JP / ENG alternate
+    if (lowerDir.includes("persistent")) {
+        if (lowerDir.includes("umamusumeprettyderby") || lowerDir.includes("umamusume_data") === false) {
+            return "eng";
+        }
         return "jp";
     }
 
