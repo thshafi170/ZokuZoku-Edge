@@ -91,7 +91,7 @@ export class LocalizeDictEditorProvider
                     case 'init': {
                         postMessage({
                             type: 'setExplorerTitle',
-                            title: vscode.l10n.t('Localize dict')
+                            title: vscode.l10n.t('Localize Dict')
                         });
 
                         initReadPromise.finally(() => {

@@ -140,7 +140,7 @@ export default class HomeStoriesTreeDataProvider extends RefreshableTreeDataProv
                             tooltip: itemId,
                             label: utils.makeStatusLabel(storyId.slice(4), status),
                             command: {
-                                title: vscode.l10n.t("Open story editor"),
+                                title: vscode.l10n.t("Open Story Editor"),
                                 command: "zokuzoku.openStoryEditor",
                                 arguments: [ "home", storyId, categoryId, groupId ]
                             }

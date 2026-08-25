@@ -150,7 +150,7 @@ export default class MainStoriesTreeDataProvider extends RefreshableTreeDataProv
                                 dictPath = await ldManager.getPathUri("assets_dir", undefined,
                                     "story", "data", comp[0], comp[1], `storytimeline_${nStoryId}.json`);
                                 command = {
-                                    title: vscode.l10n.t("Open story editor"),
+                                    title: vscode.l10n.t("Open Story Editor"),
                                     command: "zokuzoku.openStoryEditor",
                                     arguments: [ "story", nStoryId ]
                                 };
@@ -162,7 +162,7 @@ export default class MainStoriesTreeDataProvider extends RefreshableTreeDataProv
                                 dictPath = await ldManager.getPathUri("assets_dir", undefined,
                                     "race", "storyrace", "text", `storyrace_${nStoryId}.json`);
                                 command = {
-                                    title: vscode.l10n.t("Open race story editor"),
+                                    title: vscode.l10n.t("Open Race Story Editor"),
                                     command: "zokuzoku.openRaceStoryEditor",
                                     arguments: [ nStoryId ]
                                 };

@@ -34,12 +34,12 @@
 
         {
             icon: "comment",
-            tooltip: l10n.t("Dialogue preview"),
+            tooltip: l10n.t("Dialogue Preview"),
             onClick: () => $preview = $preview == "dialogue" ? null : "dialogue"
         },
         {
             icon: "book",
-            tooltip: l10n.t("Story preview"),
+            tooltip: l10n.t("Story Preview"),
             onClick: () => $preview = $preview == "story" ? null : "story"
         }
     ];

@@ -396,7 +396,7 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                             const awbPath = await assetHelper.ensureAssetDownloaded(hash, true);
                             return vscode.window.withProgress({
                                 location: vscode.ProgressLocation.Notification,
-                                title: vscode.l10n.t("Decoding audio")
+                                title: vscode.l10n.t("Decoding Audio")
                             }, async progress => {
                                 const awb = await AFS2.fromFile(awbPath);
                                 const paths = await awb.decodeToWavFiles(HCA_KEY, assetInfo.voiceCacheDir, (current, total) => {
@@ -573,11 +573,11 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                 let gender: "male" | "female" | undefined;
                 switch (choiceData.differenceFlag) {
                     case DifferenceFlag.GenderMale:
-                        tooltip = vscode.l10n.t("Male trainer choice");
+                        tooltip = vscode.l10n.t("Male Trainer Choice");
                         gender = "male";
                         break;
                     case DifferenceFlag.GenderFemale:
-                        tooltip = vscode.l10n.t("Female trainer choice");
+                        tooltip = vscode.l10n.t("Female Trainer Choice");
                         gender = "female";
                         break;
                     default:
@@ -599,7 +599,7 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
                 content.push({
                     content: colorTextInfo.text,
                     userData: { type: StoryTextSlotType.ColorText },
-                    tooltip: vscode.l10n.t("Color text")
+                    tooltip: vscode.l10n.t("Color Text")
                 });
                 ++end;
             }
@@ -652,8 +652,8 @@ export class StoryEditorProvider extends EditorBase implements vscode.CustomText
             }
 
             const tags: string[] = [];
-            if (choiceRange.start < choiceRange.end) { tags.push("choice"); }
-            if (colorRange.start < colorRange.end) { tags.push("color text"); }
+            if (choiceRange.start < choiceRange.end) { tags.push(vscode.l10n.t("Choice")); }
+            if (colorRange.start < colorRange.end) { tags.push(vscode.l10n.t("Color Text")); }
 
             if (tags.length) { name += ` (${tags.join(", ")})`; }
 

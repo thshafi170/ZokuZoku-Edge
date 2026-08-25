@@ -134,7 +134,7 @@ export class RaceStoryEditorProvider extends EditorBase implements vscode.Custom
                             const acbPath = await assetHelper.ensureAssetDownloaded(hash, true);
                             return vscode.window.withProgress({
                                 location: vscode.ProgressLocation.Notification,
-                                title: vscode.l10n.t("Decoding audio")
+                                title: vscode.l10n.t("Decoding Audio")
                             }, async progress => {
                                 const acb = await ACB.fromFile(acbPath);
                                 const paths = await acb.decodeToWavFiles(HCA_KEY, assetInfo.voiceCacheDir, (current, total) => {
